@@ -1,0 +1,7 @@
+model/*.pth
+model/*.pkl
+data/*.json
+__pycache__
+.pytest_cache
+html/*
+__init__.py

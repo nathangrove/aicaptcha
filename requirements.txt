@@ -1,0 +1,7 @@
+Flask==3.1.0
+user-agents
+torch
+scikit-learn
+joblib
+jwt
+cryptography
