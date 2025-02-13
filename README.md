@@ -1,6 +1,10 @@
 # AI CAPTCHA Project
 
-This project aims to create an AI-based CAPTCHA system that can distinguish between human and bot interactions based on user interaction data. This is not intended to be a production system, just a playground for me to learn more about neural nets and how to use them. The system uses a neural network model to analyze features extracted from the data of a user interacting with a page and make predictions. The project includes a Flask application to serve the CAPTCHA and handle API requests, as well as scripts for training the AI model.
+This project aims to create an AI-based CAPTCHA system that can distinguish between human and bot interactions based on user interaction data. This is NOT intended to be a production system, just a playground for me to learn more about neural nets and how to use them. The system uses a neural network model to analyze features extracted from the data of a user interacting with a page and make predictions. The project includes a Flask application to serve the CAPTCHA and handle API requests, as well as scripts for training the AI model.
+
+## Goals for this project
+1. Design and train a model that is 95% accurate
+2. Have a model that is small enough to run on CPU on most servers without utilizing massive compute resources
 
 ## Project Structure
 
