@@ -177,5 +177,3 @@ app.listen(3000, () => {
 ## TODO
 - Capture the form length and use (duration / form length) and replace the `duration` feature used during training.
 - Cleanup the client side code. Make it auto bootstrap and expose a nice function that will get the score before form submission. Sort of like how reCAPTCHA does it.
-- Make it be able to startup and operate without a model returning a .5
-- Give it the ability to autotrain every so many requests and load the new model
