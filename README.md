@@ -43,6 +43,25 @@ This project aims to create an AI-based CAPTCHA system that can distinguish betw
 
 To train the AI model, you can run the training script manually. This is not required to use the server, as the server will automatically train the model every 10,000 requests.
 
+### Collected Metrics & Extracted Features
+
+The following metrics and features are collected and extracted from user interaction data anonamously:
+
+1. **Average Mouse Speed**: The average speed of mouse movements.
+2. **Average Key Press Interval**: The average time interval between key presses.
+3. **Average Scroll Speed**: The average speed of scroll events.
+4. **Form Completion Time**: The total time taken to complete the form.
+5. **Interaction Count**: The total number of interactions (mouse movements, key presses, scroll events, etc.).
+6. **Mouse Linearity**: A measure of how linear the mouse movements are.
+7. **Average Touch Pressure**: The average pressure applied during touch events (for touch devices).
+8. **Average Touch Movement**: The average movement during touch events (for touch devices).
+9. **Average Click Duration**: The average duration of mouse clicks.
+10. **Average Touch Duration**: The average duration of touch events (for touch devices).
+11. **Duration**: The total duration of the interaction session.
+12. **Device Type**: One-hot encoded device type (e.g., desktop, mobile, tablet).
+
+These features are used to train the neural network model to distinguish between human and bot interactions.
+
 ### Manual Training
 
 1. Ensure you have the necessary data in the `data/` directory.
@@ -50,7 +69,7 @@ To train the AI model, you can run the training script manually. This is not req
     ```sh
     python model/train_nn.py
     ```
-3. The trained model and one-hot encoder will be saved in the `model/` directory as `neural_net_model.pth` and `onehot_encoder.pkl` respectively.
+3. The trained model and one-hot encoder will be saved in the `model/` directory as `neural_net_model_weights.pth` and `onehot_encoder.pkl` respectively.
 
 ### Automatic Training
 
@@ -70,23 +89,42 @@ Returns the public key used for verifying JWT tokens.
 
 Collects user interaction data, extracts features, and makes a prediction to determine if the user is a human or a bot. The score is returned to you along with a tracable `interaction_id` within a signed JWT. If the `save` parameter was passed in with the call, it will save the interaction for later training.
 
-### `POST /api/store-data`
+### `POST /api/store`
 
 Stores user interaction data along with an optional label for later training.
 
-### `POST /api/update-data`
+### `POST /api/update`
 
 Updates the label for a specific interaction. If you are gathering data to train on, you can use an existing captcha service as the ground for your labels.
 
 
-## Lifecycle
+## Lifecycles
+
+
+### Manually acquiring a token
+
+This is useful when using client side frameworks.
 
 1. Load the `captcha.js` file on the form.
-2. Before the form is submitted, run the `sendDataToServer()` function in the `captcha.js` file.
-3. Submit the returned token (JWT) to your server along with the form data for processing.
-4. The server can call the `/api/public_key` endpoint to get the public key used for signing the JWT to verify its legitimacy.
-5. Have your server logic determine what to do based on the score within the JWT.
-6. (Optional) Use an alternative (already proven) CAPTCHA service or other means of determination to update the interaction data (`/api/update-data`) for the server to retrain on.
+2. Initialize the AICaptcha class
+3. Before the form is submitted, call the `executeAsync()` function
+4. Submit the token with your data to the server.
+
+### Automatically acquiring a token
+
+This method is the easiest for simple HTML forms.
+
+1. Load the `captcha.js` file on the form.
+2. Initialize the AICaptcha and pass `autoIntercept: true` to the config
+3. The token will be acquired and submitted with the form data to the server
+
+### Processing the token on the server
+
+Once the token is submitted to your sever with the data, you will need to verify the legitamacy of the token and the score in the token.
+
+1. Call the `/api/public_key` endpoint to get the public key used for signing the token
+2. Have your server logic determine what to do based on the score within the token (JWT)
+3. (Optional) Use an alternative (already proven) CAPTCHA service or other means of determination to update the interaction data (`/api/update`) for the server to retrain on.
 
 
 ## Client Side Code Example
@@ -109,19 +147,8 @@ Here is an example of how to integrate the CAPTCHA on the client side using Java
     </form>
 
     <script>
-        document.getElementById('example-form').addEventListener('submit', function(event) {
-            event.preventDefault(); // Prevent the form from submitting immediately
-            sendDataToServer().then(token => {
-                // Add the token to the form data
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'captcha_token';
-                input.value = token;
-                this.appendChild(input);
-                // Now submit the form
-                this.submit();
-            });
-        });
+        // Automatically intercept form submissions
+        document.addEventListener("DOMContentLoaded", () => new AICaptcha({ autoIntercept: true }));
     </script>
 </body>
 </html>
@@ -180,4 +207,3 @@ app.listen(3000, () => {
 
 ## TODO
 - Capture the form length and use (duration / form length) and replace the `duration` feature used during training.
-- Cleanup the client side code. Make it auto bootstrap and expose a nice function that will get the score before form submission. Sort of like how reCAPTCHA does it.
