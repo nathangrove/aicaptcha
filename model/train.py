@@ -4,37 +4,13 @@ import torch
 import json
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 import joblib
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from extract_features import UserInteractionData, extract_features
-
-class InteractionDataset(Dataset):
-    def __init__(self, data, labels):
-        self.data = data
-        self.labels = labels
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        return torch.tensor(self.data[idx], dtype=torch.float32), torch.tensor(self.labels[idx], dtype=torch.float32)
-
-class NeuralNet(nn.Module):
-    def __init__(self, input_size):
-        super(NeuralNet, self).__init__()
-        self.fc1 = nn.Linear(input_size, 64)  # First fully connected layer with 64 neurons
-        self.fc2 = nn.Linear(64, 32)  # Second fully connected layer with 32 neurons
-        self.fc3 = nn.Linear(32, 1)  # Output layer with 1 neuron for binary classification
-        self.sigmoid = nn.Sigmoid()  # Sigmoid activation function for binary classification
-
-    def forward(self, x):
-        x = torch.relu(self.fc1(x))  # ReLU activation function for the first layer
-        x = torch.relu(self.fc2(x))  # ReLU activation function for the second layer
-        x = self.sigmoid(self.fc3(x))  # Sigmoid activation function for the output layer
-        return x
+from model.model_definitions import InteractionDataset, NeuralNet
 
 # Function to load data from the data directory
 def load_data(data_dir):
@@ -60,7 +36,6 @@ def load_data(data_dir):
                 )
                 features = extract_features(user_interaction_data)
                 feature_values = list(features.__dict__.values())
-                feature_values.append(data['duration'])
 
                 device_types.append(data['user_agent']['device'])
                 if 'label' in data:
@@ -73,7 +48,7 @@ def load_data(data_dir):
     # One-hot encode device types
     encoder = OneHotEncoder(sparse_output=False)
     device_types_encoded = encoder.fit_transform([[dt] for dt in device_types])
-    joblib.dump(encoder, './onehot_encoder.pkl')  # Save the one-hot encoder
+    joblib.dump(encoder, 'model/onehot_encoder.pkl')  # Save the one-hot encoder
 
     # Append one-hot encoded device types to features
     X = [x + list(device_types_encoded[i]) for i, x in enumerate(X)]
@@ -131,9 +106,9 @@ def main():
     accuracy = correct / total  # Compute the accuracy
     print(f'Model accuracy: {accuracy * 100:.2f}%')  # Print the accuracy
     
-    # Save the trained model and the one-hot encoder
-    torch.save(model.state_dict(), './neural_net_model.pth')  # Save the model parameters
-    print('Model and one-hot encoder saved to model/neural_net_model.pth and model/onehot_encoder.pkl')
+    # Save the trained model weights and the one-hot encoder
+    torch.save(model.state_dict(), 'model/neural_net_model_weights.pth')  # Save the model weights
+    print('Model weights and one-hot encoder saved to model/neural_net_model_weights.pth and model/onehot_encoder.pkl')
 
 if __name__ == '__main__':
     main()

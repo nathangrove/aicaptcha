@@ -12,18 +12,19 @@ import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
+from model.model_definitions import NeuralNet
+from datetime import datetime, timezone
 
 app = Flask(__name__)
 
 # Load the trained model and the one-hot encoder
-model_path = 'model/neural_net_model.pth'
+model_path = 'model/neural_net_model_weights.pth'
 encoder_path = 'model/onehot_encoder.pkl'
-
 if os.path.exists(model_path) and os.path.exists(encoder_path):
-    model = torch.load(model_path)
     encoder = joblib.load(encoder_path)
-    print(f"Model type: {type(model)}")
-    print(f"Encoder type: {type(encoder)}")
+    model = NeuralNet()
+    model.load_state_dict(torch.load(model_path))
+    model.eval()
 else:
     model = None
     encoder = None
@@ -39,12 +40,10 @@ if not os.path.exists('signing-keys'):
         backend=default_backend()
     )
     PUBLIC_KEY = PRIVATE_KEY.public_key()
-
 else:
     # Load the private key for signing JWT
     with open('signing-keys/private_key.pem', 'rb') as f:
         PRIVATE_KEY = f.read()
-
     # Load the public key for serving
     with open('signing-keys/public_key.pem', 'rb') as f:
         PUBLIC_KEY = f.read()
@@ -69,7 +68,14 @@ def serve_file(path):
 # Endpoint to serve the public key
 @app.route('/api/public_key', methods=['GET'])
 def get_public_key():
-    return jsonify({'public_key': PUBLIC_KEY.decode('utf-8')})
+    if isinstance(PUBLIC_KEY, rsa.RSAPublicKey):
+        public_key_pem = PUBLIC_KEY.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        ).decode('utf-8')
+    else:
+        public_key_pem = PUBLIC_KEY.decode('utf-8')
+    return jsonify({'public_key': public_key_pem})
 
 # Endpoint to collect data and make a decision
 @app.route('/api/challenge', methods=['POST'])
@@ -110,10 +116,10 @@ def captcha_challenge():
     features = extract_features(user_interaction_data)
 
     # One-hot encode device type
-    if hasattr(user_agent, 'device') and hasattr(user_agent.device, 'family'):
+    if encoder is not None and hasattr(user_agent, 'device') and hasattr(user_agent.device, 'family'):
         device_type_encoded = encoder.transform([[user_agent.device.family]]).flatten()
     else:
-        device_type_encoded = [0] * len(encoder.categories_[0])
+        device_type_encoded = [0]
 
     # Convert features to tensor
     features_tensor = torch.tensor([
@@ -147,11 +153,11 @@ def captcha_challenge():
 
     # Save interaction data if requested
     if save_interaction:
-        timestamp = datetime.utcnow().isoformat()
+        timestamp = datetime.now(timezone.utc)
         data_to_save = {
             'session_id': session_id,
             'interaction_id': interaction_id,
-            'timestamp': timestamp,
+            'timestamp': timestamp.isoformat(),
             'interaction_data': interaction_data,
             'duration': duration,
             'label': prediction.item(),
@@ -168,8 +174,18 @@ def captcha_challenge():
         with open(f'data/{interaction_id}.json', 'w') as f:
             json.dump(data_to_save, f)
 
+    # Serialize the private key to PEM format
+    if isinstance(PRIVATE_KEY, rsa.RSAPrivateKey):
+        PRIVATE_KEY_PEM = PRIVATE_KEY.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        ).decode('utf-8')
+    else:
+        PRIVATE_KEY_PEM = PRIVATE_KEY.decode('utf-8')
+
     # Create JWT with the challenge response and interaction ID
-    token = jwt.encode({'score': prediction.item(), 'interaction_id': interaction_id}, SECRET_KEY, algorithm='HS256')
+    token = jwt.encode({'score': prediction.item(), 'interaction_id': interaction_id}, PRIVATE_KEY_PEM, algorithm='RS256')
 
     response = make_response(jsonify({'token': token}))
     response.set_cookie('session_id', session_id)
@@ -177,7 +193,7 @@ def captcha_challenge():
 
 # Endpoint to store data
 # A label is required to store the data. You can use an existing tool (reCaptcha, altCaptcha, etc) to generate a label
-@app.route('/api/store-data', methods=['POST'])
+@app.route('/api/store', methods=['POST'])
 def store_data():
     global request_counter
     data = request.json.get('data')
@@ -193,6 +209,7 @@ def store_data():
     duration = interaction_payload.get('duration')
     viewport = interaction_payload.get('viewport')
     load_timestamp = interaction_payload.get('loadTimestamp')
+    label = interaction_payload.get('label')
 
     # Get user agent from headers
     user_agent_string = request.headers.get('User-Agent')
@@ -210,11 +227,11 @@ def store_data():
     user_agent = parse(user_agent_string)
 
     # Save interaction data to a JSON file
-    timestamp = datetime.utcnow().isoformat()
+    timestamp = datetime.now(timezone.utc)
     data_to_save = {
         'session_id': session_id,
         'interaction_id': interaction_id,
-        'timestamp': timestamp,
+        'timestamp': timestamp.isoformat(),
         'interaction_data': interaction_data,
         'duration': duration,
         'label': label,
@@ -240,7 +257,7 @@ def store_data():
     return response
 
 # Endpoint to update data with a label
-@app.route('/api/update-data', methods=['POST'])
+@app.route('/api/update', methods=['POST'])
 def update_label():
     interaction_id = request.json.get('interaction_id')
     new_label = request.json.get('label')
@@ -257,7 +274,7 @@ def update_label():
         data = json.load(f)
 
     # Update the label
-    data['label'] = label
+    data['label'] = new_label
 
     # Save the updated data back to the file
     with open(file_path, 'w') as f:
@@ -280,7 +297,7 @@ def _increment_request_counter():
         _train_and_reload()
 
 def _train_and_reload():
-    os.system('python3 model/train_nn.py')
+    os.system('python3 model/train.py')
     global model, encoder
     model = torch.load(model_path)
     encoder = joblib.load(encoder_path)
