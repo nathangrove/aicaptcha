@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 import logging
 from jsonschema import validate, ValidationError
+from flask_cors import cross_origin
 
 app = Flask(__name__)
 
@@ -221,6 +222,7 @@ def get_public_key():
 
 # Endpoint to collect data and make a decision
 @app.route('/api/challenge', methods=['POST'])
+@cross_origin()
 def captcha_challenge():
     interaction_payload = request.json.get('data')
     save_interaction = request.json.get('save', False)
