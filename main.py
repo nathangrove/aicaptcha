@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, send_from_directory, make_response
+from flask_expects_json import expects_json
 import os
 import base64
 import json
@@ -14,8 +15,149 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 from model.model_definitions import NeuralNet
 from datetime import datetime, timezone
+from dotenv import load_dotenv
+import logging
+from jsonschema import validate, ValidationError
 
 app = Flask(__name__)
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Load the static token from environment variable
+AUTH_TOKEN = os.getenv('AUTH_TOKEN')
+
+# Configure logging
+#logging.basicConfig(level=logging.INFO, format='%(asctime)s - %name)s - %levelname)s - %message)s', handlers=[logging.FileHandler('access.log'), logging.StreamHandler()])
+
+# Middleware to log responses
+@app.after_request
+def log_response_info(response):
+    try:
+        logging.info('%s - - [%s] "%s %s %s" %s "%s" "%s" %s %s',
+            request.remote_addr,
+            datetime.now().strftime('%d/%b/%Y:%H:%M:%S %z'),
+            request.method,
+            request.path,
+            request.scheme.upper(),
+            request.environ.get('SERVER_PROTOCOL'),
+            request.headers.get('Referer', '-'),
+            request.headers.get('User-Agent', '-'),
+            response.status_code,
+            request.content_length)
+    except Exception as e:
+        logging.error(f"Error logging response info")
+    return response
+
+# Middleware to check for the static token in the Authorization header
+@app.before_request
+def check_authentication():
+    if request.endpoint in ['serve_index', 'serve_file', 'get_public_key']:
+        return  # Skip authentication for these endpoints
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or auth_header.split()[1] != AUTH_TOKEN:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+# JSON schema for request validation
+store_schema = {
+    'type': 'object',
+    'properties': {
+        'data': {'type': 'string'},
+        'session_id': {'type': 'string'}
+    },
+    'required': ['data']
+}
+
+update_schema = {
+    'type': 'object',
+    'properties': {
+        'interaction_id': {'type': 'string'},
+        'label': {'type': 'number'}
+    },
+    'required': ['interaction_id', 'label']
+}
+
+# JSON schema for interaction payload validation
+interaction_payload_schema = {
+    'type': 'object',
+    'properties': {
+        'interactions': {
+            'type': 'object',
+            'properties': {
+                'mouseMovements': {
+                    'type': 'array', 
+                    'items': {
+                        'type': 'object', 
+                        'properties': {
+                            'type': {
+                                'type': 'string'
+                            },
+                            'x': {
+                                'type': 'number'
+                            }, 
+                            'y': {
+                                'type': 'number'
+                            }, 
+                            'time': {
+                                'type': 'number'
+                            }
+                        }
+                    }
+                },
+                'keyPresses': {
+                    'type': 'array', 
+                    'items': {
+                        'type': 'object', 
+                        'properties': {
+                            'key': {
+                                'type': 'string'
+                            }, 
+                            'time': {
+                                'type': 'number'
+                            }
+                        }
+                    }
+                },
+                'scrollEvents': {
+                    'type': 'array', 
+                    'items': {
+                        'type': 'object', 
+                        'properties': {
+                            'deltaX': {
+                                'type': 'number'
+                            }, 
+                            'deltaY': {
+                                'type': 'number'
+                            }, 
+                            'time': {
+                                'type': 'number'
+                            }
+                        }
+                    }
+                },
+                'formInteractions': {
+                    'type': 'array', 
+                    'items': {
+                        'type': 'object', 
+                        'properties': {
+                            'field': {
+                                'type': 'string'
+                            },
+                            'time' :{
+                                'type':'number'
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        'duration': {'type': 'number'},
+        'loadTimestamp': {'type': 'number'},
+        'userAgent': {'type': 'string'},
+        'viewPort': {'type': 'object', 'properties': {'width': {'type': 'number'}, 'height': {'type': 'number'}}},
+    },
+    'required': ['interactions', 'duration', 'viewport', 'loadTimestamp']
+}
 
 # Load the trained model and the one-hot encoder
 model_path = 'model/neural_net_model_weights.pth'
@@ -80,14 +222,20 @@ def get_public_key():
 # Endpoint to collect data and make a decision
 @app.route('/api/challenge', methods=['POST'])
 def captcha_challenge():
-    data = request.json.get('data')
+    interaction_payload = request.json.get('data')
     save_interaction = request.json.get('save', False)
-    if not data:
+    if not interaction_payload:
         return jsonify({'error': 'No data provided'}), 400
 
-    # Decode the base64 data
-    decoded_data = base64.b64decode(data)
-    interaction_payload = json.loads(decoded_data)
+    # Validate the interaction payload
+    try:
+        validate(instance=interaction_payload, schema=interaction_payload_schema)
+    except json.JSONDecodeError:
+        logging.error('Invalid JSON format')
+        return jsonify({'error': 'Invalid JSON format'}), 400
+    except ValidationError as e:
+        logging.error(f'JSON validation error: {e.message}')
+        return jsonify({'error': f'JSON validation error: {e.message}'}), 400
 
     interaction_data = interaction_payload.get('interactions')
     duration = interaction_payload.get('duration')
@@ -194,6 +342,7 @@ def captcha_challenge():
 # Endpoint to store data
 # A label is required to store the data. You can use an existing tool (reCaptcha, altCaptcha, etc) to generate a label
 @app.route('/api/store', methods=['POST'])
+@expects_json(store_schema)
 def store_data():
     global request_counter
     data = request.json.get('data')
@@ -258,6 +407,7 @@ def store_data():
 
 # Endpoint to update data with a label
 @app.route('/api/update', methods=['POST'])
+@expects_json(update_schema)
 def update_label():
     interaction_id = request.json.get('interaction_id')
     new_label = request.json.get('label')

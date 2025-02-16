@@ -1,6 +1,7 @@
 class AICaptcha {
   constructor(config = {
     autoIntercept: false,
+    publicKey: ''
   }) {
     this.config = config;
     this.interactionData = {
@@ -72,7 +73,6 @@ class AICaptcha {
         formData.forEach((value, key) => {
           this.interactionData.formInteractions.push({
             field: key,
-            value: value.toString(),
             time: Date.now(),
           });
         });
@@ -134,7 +134,7 @@ class AICaptcha {
   }
 
   async sendDataToServer() {
-    const b64Data = btoa(JSON.stringify({
+    const data = {
       interactions: this.interactionData,
       duration: Date.now() - this.loadTimestamp,
       userAgent: navigator.userAgent,
@@ -143,16 +143,18 @@ class AICaptcha {
         height: window.innerHeight,
       },
       loadTimestamp: this.loadTimestamp,
-    }));
+    };
     const response = await fetch('/api/challenge', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.config.publicKey}`
       },
-      body: JSON.stringify({ data: b64Data }),
+      body: JSON.stringify({data}),
     });
 
     const result = await response.json();
+    console.log('captcha response:', result);
     return result.token;
   }
 
@@ -184,7 +186,7 @@ const aiCaptcha = new AICaptcha({
 });
 */
 // Example usage of the AICaptcha class manually
-// const aiCaptcha = new AICaptcha();
+// const aiCaptcha = new AICaptcha({ publicKey: 'your_public_key_here' });
 // aiCaptcha.executeAsync().then(token => {
 //   console.log('Captcha token:', token);
 // });
@@ -192,4 +194,5 @@ const aiCaptcha = new AICaptcha({
 // Automatically intercept form submissions
 // const aiCaptcha = new AICaptcha({
 //   autoIntercept: true,
+//   publicKey: 'your_public_key_here'
 // });
