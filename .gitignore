@@ -7,3 +7,4 @@ html/*
 __init__.py
 .env
 access.log
+docker-compose.yml

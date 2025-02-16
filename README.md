@@ -126,10 +126,9 @@ Once the token is submitted to your sever with the data, you will need to verify
 2. Have your server logic determine what to do based on the score within the token (JWT)
 3. (Optional) Use an alternative (already proven) CAPTCHA service or other means of determination to update the interaction data (`/api/update`) for the server to retrain on.
 
+## Client Side Code Examples
 
-## Client Side Code Example
-
-Here is an example of how to integrate the CAPTCHA on the client side using JavaScript:
+### Vanilla JavaScript Example
 
 ```html
 <!DOCTYPE html>
@@ -138,7 +137,6 @@ Here is an example of how to integrate the CAPTCHA on the client side using Java
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI CAPTCHA Example</title>
-    <script src="/captcha.js"></script>
 </head>
 <body>
     <form id="example-form" action="/submit" method="POST">
@@ -146,63 +144,123 @@ Here is an example of how to integrate the CAPTCHA on the client side using Java
         <button type="submit">Submit</button>
     </form>
 
-    <script>
-        // Automatically intercept form submissions
-        document.addEventListener("DOMContentLoaded", () => new AICaptcha({ autoIntercept: true }));
+    <script type="module">
+        import { AICaptcha } from './captcha.js';
+        
+        // Initialize with automatic form interception
+        const aiCaptcha = new AICaptcha({
+            publicKey: 'your-public-key-here',
+            autoIntercept: true
+        });
     </script>
 </body>
 </html>
 ```
 
-## Server Side Code Example (Node.js)
+### React Example
 
-Here is an example of how to verify the CAPTCHA token on the server side using Node.js:
+```jsx
+import { useAICaptcha } from './captcha.js';
+
+function MyForm() {
+    const { execute, token } = useAICaptcha({
+        publicKey: 'your-public-key-here'
+    });
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        
+        try {
+            const captchaToken = await execute();
+            
+            // Your form submission logic here
+            const formData = new FormData(e.target);
+            formData.append('captcha_token', captchaToken);
+            
+            // Send to your server
+            const response = await fetch('/api/submit', {
+                method: 'POST',
+                body: formData
+            });
+            
+        } catch (error) {
+            console.error('Captcha verification failed:', error);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit}>
+            {/* Your form fields */}
+            <button type="submit">Submit</button>
+        </form>
+    );
+}
+```
+
+### Manual Token Acquisition
+
+```javascript
+import { AICaptcha } from './captcha.js';
+
+// Initialize without automatic interception
+const aiCaptcha = new AICaptcha({
+    publicKey: 'your-public-key-here',
+    autoIntercept: false
+});
+
+// Get token when needed
+const token = await aiCaptcha.executeAsync();
+```
+
+## Server Side Code Example (Node.js)
 
 ```javascript
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
 const app = express();
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Replace with your actual public key endpoint
 const PUBLIC_KEY_URL = 'http://localhost:5000/api/public_key';
 let publicKey = '';
 
-// Fetch the public key from the CAPTCHA server
-axios.get(PUBLIC_KEY_URL).then(response => {
-    publicKey = response.data.public_key;
-}).catch(error => {
-    console.error('Error fetching public key:', error);
-});
+// Fetch the public key
+const fetchPublicKey = async () => {
+    try {
+        const response = await axios.get(PUBLIC_KEY_URL);
+        publicKey = response.data.public_key;
+    } catch (error) {
+        console.error('Error fetching public key:', error);
+    }
+};
 
-app.post('/submit', (req, res) => {
+fetchPublicKey();
+
+app.post('/submit', async (req, res) => {
     const token = req.body.captcha_token;
+    
     if (!token) {
-        return res.status(400).send('CAPTCHA token is missing');
+        return res.status(400).json({ error: 'CAPTCHA token is missing' });
     }
 
     try {
         const decoded = jwt.verify(token, publicKey);
-        const score = decoded.score;
-        // Use the score to determine if the user is a human or a bot
-        if (score > 0.5) {
-            // Human
-            res.send('Form submitted successfully');
+        
+        if (decoded.score > 0.5) {
+            // Process form submission for human user
+            res.json({ success: true, message: 'Form submitted successfully' });
         } else {
-            // Bot
-            res.status(403).send('CAPTCHA verification failed');
+            res.status(403).json({ error: 'CAPTCHA verification failed' });
         }
     } catch (error) {
         console.error('Error verifying CAPTCHA token:', error);
-        res.status(500).send('Internal server error');
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-app.listen(3000, () => {
-    console.log('Server is running on port 3000');
-});
+app.listen(3000, () => console.log('Server running on port 3000'));
 ```
 
 ## TODO
