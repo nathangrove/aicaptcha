@@ -7,3 +7,4 @@ jwt
 cryptography
 flask_expects_json
 python-dotenv
+flask_cors
