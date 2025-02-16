@@ -5,3 +5,5 @@ scikit-learn
 joblib
 jwt
 cryptography
+flask_expects_json
+python-dotenv
