@@ -14,12 +14,14 @@ from main import app as flask_app  # Import your Flask app with a valid Python n
 @pytest.fixture
 def client():
     flask_app.config['TESTING'] = True
+    flask_app.config['AUTH_TOKEN'] = 'your_auth_token'  # Set the AUTH_TOKEN for testing
     with flask_app.test_client() as client:
         yield client
 
 def test_public_key(client):
     """Test the public key endpoint."""
-    rv = client.get('/api/public_key')
+    headers = {'Authorization': f'Bearer {flask_app.config["AUTH_TOKEN"]}'}
+    rv = client.get('/api/public_key', headers=headers)
     assert rv.status_code == 200
     data = rv.get_json()
     assert 'public_key' in data
@@ -36,7 +38,8 @@ def test_captcha_challenge(client):
         }).encode('utf-8')).decode('utf-8'),
         'save': False
     }
-    rv = client.post('/api/challenge', json=data)
+    headers = {'Authorization': f'Bearer {flask_app.config["AUTH_TOKEN"]}'}
+    rv = client.post('/api/challenge', json=data, headers=headers)
     assert rv.status_code == 200
     response_data = rv.get_json()
     assert 'token' in response_data
@@ -53,7 +56,8 @@ def test_captcha_challenge_save(client):
         }).encode('utf-8')).decode('utf-8'),
         'save': True
     }
-    rv = client.post('/api/challenge', json=data)
+    headers = {'Authorization': f'Bearer {flask_app.config["AUTH_TOKEN"]}'}
+    rv = client.post('/api/challenge', json=data, headers=headers)
     assert rv.status_code == 200
     response_data = rv.get_json()
     assert 'token' in response_data
@@ -77,7 +81,8 @@ def test_captcha_challenge_score(client):
         }).encode('utf-8')).decode('utf-8'),
         'save': False
     }
-    rv = client.post('/api/challenge', json=data)
+    headers = {'Authorization': f'Bearer {flask_app.config["AUTH_TOKEN"]}'}
+    rv = client.post('/api/challenge', json=data, headers=headers)
     assert rv.status_code == 200
     response_data = rv.get_json()
     assert 'token' in response_data
@@ -98,7 +103,8 @@ def test_update_label(client):
         }).encode('utf-8')).decode('utf-8'),
         'save': True
     }
-    rv = client.post('/api/challenge', json=data)
+    headers = {'Authorization': f'Bearer {flask_app.config["AUTH_TOKEN"]}'}
+    rv = client.post('/api/challenge', json=data, headers=headers)
     assert rv.status_code == 200
     response_data = rv.get_json()
     assert 'token' in response_data
@@ -110,7 +116,7 @@ def test_update_label(client):
         'interaction_id': interaction_id,
         'label': 'new_label'
     }
-    rv = client.post('/api/update', json=update_data)
+    rv = client.post('/api/update', json=update_data, headers=headers)
     assert rv.status_code == 200
     response_data = rv.get_json()
     assert response_data['message'] == 'Label updated successfully'
@@ -140,7 +146,8 @@ def test_store_endpoint(client):
         }).encode('utf-8')).decode('utf-8'),
         'save': True
     }
-    rv = client.post('/api/store', json=data)
+    headers = {'Authorization': f'Bearer {flask_app.config["AUTH_TOKEN"]}'}
+    rv = client.post('/api/store', json=data, headers=headers)
     assert rv.status_code == 200
     response_data = rv.get_json()
     assert 'message' in response_data

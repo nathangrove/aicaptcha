@@ -3,7 +3,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import json
-from extract_features import extract_features, UserInteractionData
+from src.extract_features import extract_features, UserInteractionData
 
 ##################
 # DEV TOOL

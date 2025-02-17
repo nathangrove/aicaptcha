@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 import joblib
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from extract_features import UserInteractionData, extract_features
+from src.extract_features import UserInteractionData, extract_features
 from model.model_definitions import InteractionDataset, NeuralNet
 
 # Function to load data from the data directory
@@ -19,30 +19,37 @@ def load_data(data_dir):
     device_types = []
     print(f"Loading data from {data_dir}")  # Debug statement to check the data directory    
     for filename in os.listdir(data_dir):
-        if filename.endswith('.json'):
-            file_path = os.path.join(data_dir, filename)
-            print(f"Processing file: {file_path}")  # Debug statement to check the file being processed
-            with open(file_path, 'r') as f:
-                data = json.load(f)
-                interaction_data = data['interaction_data']
-                user_interaction_data = UserInteractionData(
-                    mouse_movements=interaction_data.get('mouseMovements', []),
-                    key_presses=interaction_data.get('keyPresses', []),
-                    scroll_events=interaction_data.get('scrollEvents', []),
-                    form_interactions=interaction_data.get('formInteractions', []),
-                    touch_events=interaction_data.get('touchEvents', []),
-                    mouse_clicks=interaction_data.get('mouseClicks', []),
-                    duration=data['duration']
-                )
-                features = extract_features(user_interaction_data)
-                feature_values = list(features.__dict__.values())
+        try:
+            if filename.endswith('.json'):
+                file_path = os.path.join(data_dir, filename)
+                print(f"Processing file: {file_path}")  # Debug statement to check the file being processed
+                with open(file_path, 'r') as f:
+                    data = json.load(f)
+                    interaction_data = data['interaction_data']
+                    user_interaction_data = UserInteractionData(
+                        mouse_movements=interaction_data.get('mouseMovements', []),
+                        key_presses=interaction_data.get('keyPresses', []),
+                        scroll_events=interaction_data.get('scrollEvents', []),
+                        form_interactions=interaction_data.get('formInteractions', []),
+                        touch_events=interaction_data.get('touchEvents', []),
+                        mouse_clicks=interaction_data.get('mouseClicks', []),
+                        duration=data['duration']
+                    )
+                    features = extract_features(user_interaction_data)
+                    feature_values = list(features.__dict__.values())
 
-                device_types.append(data['user_agent']['device'])
-                if 'label' in data:
-                    y.append(data['label'])  # Convert label to float
-                    X.append(feature_values)
-                else:
-                    print(f"Warning: 'label' key not found in {file_path}. Skipping this file.")
+                    device_types.append(data['user_agent']['device'])
+                    if 'label' in data and data['label'] is not None:
+                        y.append(data['label'])  # Convert label to float
+                        X.append(feature_values)
+                    else:
+                        print(f"Warning: 'label' key not found or is None in {file_path}. Skipping this file.")
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON from file {file_path}: {e}")
+            continue
+        except KeyError as e:
+            print(f"KeyError: {e} in file {file_path}")
+            continue
     print(f"Loaded {len(X)} samples.")  # Debug statement to check the number of loaded samples
 
     # One-hot encode device types
