@@ -139,4 +139,6 @@ def update_label_route():
     return update_label(update_schema)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    env = os.getenv('FLASK_ENV', 'development')
+    debug_mode = env != 'production'
+    app.run(host='0.0.0.0', port=5000, debug=debug_mode)
