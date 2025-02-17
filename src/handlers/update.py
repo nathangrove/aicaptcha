@@ -2,7 +2,7 @@ from flask import request, jsonify
 from flask_expects_json import expects_json
 import os
 import json
-
+from main import request_counter, counter_file, model_path, encoder_path, model, encoder
 
 def update_label(update_schema):
     interaction_id = request.json.get('interaction_id')

@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from user_agents import parse
 import os
+from main import request_counter, counter_file, model_path, encoder_path, model, encoder
 
 
 def store_data(store_schema):
