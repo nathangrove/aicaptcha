@@ -25,8 +25,9 @@ app = Flask(__name__)
 # Load environment variables from .env file
 load_dotenv()
 
-# Load the static token from environment variable
+# Load the static tokens from environment variables
 AUTH_TOKEN = os.getenv('AUTH_TOKEN')
+PUBLIC_AUTH_TOKEN = os.getenv('PUBLIC_AUTH_TOKEN')
 
 # Configure logging
 #logging.basicConfig(level=logging.INFO, format='%(asctime)s - %name)s - %levelname)s - %message)s', handlers=[logging.FileHandler('access.log'), logging.StreamHandler()])
@@ -53,7 +54,7 @@ def log_response_info(response):
 # Middleware to check for the static token in the Authorization header
 @app.before_request
 def check_authentication():
-    if request.endpoint in ['serve_index', 'serve_file', 'get_public_key']:
+    if request.endpoint in ['serve_index', 'serve_file', 'get_public_key', 'captcha_challenge']:
         return  # Skip authentication for these endpoints
     auth_header = request.headers.get('Authorization')
     if not auth_header or auth_header.split()[1] != AUTH_TOKEN:
@@ -224,6 +225,10 @@ def get_public_key():
 @app.route('/api/challenge', methods=['POST'])
 @cross_origin()
 def captcha_challenge():
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or auth_header.split()[1] != PUBLIC_AUTH_TOKEN:
+        return jsonify({'error': 'Unauthorized'}), 401
+
     interaction_payload = request.json.get('data')
     save_interaction = request.json.get('save', False)
     if not interaction_payload:
