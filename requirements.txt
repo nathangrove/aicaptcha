@@ -3,7 +3,7 @@ user-agents
 torch
 scikit-learn
 joblib
-jwt
+pyjwt
 cryptography
 flask_expects_json
 python-dotenv

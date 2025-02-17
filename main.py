@@ -59,7 +59,7 @@ def log_response_info(response):
 # Middleware to check for the static token in the Authorization header
 @app.before_request
 def check_authentication():
-    if request.endpoint in ['serve_index', 'serve_file', 'get_public_key', 'captcha_challenge']:
+    if request.endpoint in ['serve_index_route', 'serve_file_route', 'get_public_key_route', 'captcha_challenge_route']:
         return  # Skip authentication for these endpoints
     auth_header = request.headers.get('Authorization')
     if not auth_header or auth_header.split()[1] != AUTH_TOKEN:

@@ -129,7 +129,6 @@ def captcha_challenge(PUBLIC_AUTH_TOKEN, interaction_payload_schema, model, enco
     else:
         PRIVATE_KEY_PEM = PRIVATE_KEY.decode('utf-8')
 
-    # Create JWT with the challenge response and interaction ID
     token = jwt.encode({'score': prediction.item(), 'interaction_id': interaction_id}, PRIVATE_KEY_PEM, algorithm='RS256')
 
     response = make_response(jsonify({'token': token}))
