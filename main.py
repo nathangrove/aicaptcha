@@ -24,6 +24,7 @@ from src.handlers.serve import serve_index, serve_file, get_public_key
 from src.handlers.challenge import captcha_challenge
 from src.handlers.store import store_data
 from src.handlers.update import update_label
+from src.shared_variables import request_counter, counter_file, _train_and_reload
 
 app = Flask(__name__)
 
@@ -138,6 +139,16 @@ def store_data_route():
 def update_label_route():
     return update_label(update_schema)
 
+
+
+def _train_and_reload():
+    os.system('python3 model/train.py')
+    global model, encoder
+    model = torch.load(model_path)
+    encoder = joblib.load(encoder_path)
+    print("Model and encoder reloaded.")
+
+    
 if __name__ == '__main__':
     env = os.getenv('FLASK_ENV', 'development')
     debug_mode = env != 'production'

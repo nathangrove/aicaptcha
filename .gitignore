@@ -8,3 +8,4 @@ __init__.py
 .env
 access.log
 docker-compose.yml
+request_counter.txt

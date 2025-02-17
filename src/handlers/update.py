@@ -2,7 +2,7 @@ from flask import request, jsonify
 from flask_expects_json import expects_json
 import os
 import json
-from main import request_counter, counter_file, model_path, encoder_path, model, encoder
+from src.shared_variables import request_counter, counter_file, _train_and_reload
 
 def update_label(update_schema):
     interaction_id = request.json.get('interaction_id')
@@ -41,11 +41,3 @@ def _increment_request_counter():
         with open(counter_file, 'w') as f:
             f.write(str(request_counter))
         _train_and_reload()
-
-
-def _train_and_reload():
-    os.system('python3 model/train.py')
-    global model, encoder
-    model = torch.load(model_path)
-    encoder = joblib.load(encoder_path)
-    print("Model and encoder reloaded.")
