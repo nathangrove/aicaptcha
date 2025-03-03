@@ -97,7 +97,7 @@ def captcha_challenge(PUBLIC_AUTH_TOKEN, interaction_payload_schema, model, enco
     interaction_id = str(uuid.uuid4())
 
     # Save interaction data if requested
-    if save_interaction:
+    if save_interaction == True:
         timestamp = datetime.now(timezone.utc)
         data_to_save = {
             'session_id': session_id,
@@ -105,7 +105,7 @@ def captcha_challenge(PUBLIC_AUTH_TOKEN, interaction_payload_schema, model, enco
             'timestamp': timestamp.isoformat(),
             'interaction_data': interaction_data,
             'duration': duration,
-            'label': prediction.item(),
+            'answer': prediction.item(),
             'user_agent': {
                 'browser': user_agent.browser.family,
                 'browser_version': user_agent.browser.version_string,
@@ -113,6 +113,7 @@ def captcha_challenge(PUBLIC_AUTH_TOKEN, interaction_payload_schema, model, enco
                 'os_version': user_agent.os.version_string,
                 'device': user_agent.device.family
             },
+            'referrer': request.headers.get('Referer', ''),
             'viewport': viewport,
             'load_timestamp': load_timestamp
         }
